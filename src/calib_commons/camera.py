@@ -1,11 +1,11 @@
 import numpy as np 
 
-from calibCommons.viz.visualization_tools import plot_camera
-from calibCommons.intrinsics import Intrinsics
-from calibCommons.types import idtype
-from calibCommons.utils.se3 import SE3
+from calib_commons.viz.visualization_tools import plot_camera
+from calib_commons.intrinsics import Intrinsics
+from calib_commons.types import idtype
+from calib_commons.utils.se3 import SE3
 
-from calibCommons.utils import utils
+from calib_commons.utils import utils
 
 class Camera: 
 

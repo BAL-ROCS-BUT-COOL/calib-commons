@@ -1,7 +1,7 @@
 import numpy as np
 from dataclasses import dataclass
 
-from calibCommons.types import idtype
+from calib_commons.types import idtype
 
 @dataclass
 class ObjectPoint: 

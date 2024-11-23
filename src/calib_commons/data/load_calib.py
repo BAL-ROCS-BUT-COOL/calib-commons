@@ -1,7 +1,7 @@
 import json 
 import numpy as np
 
-from calibCommons.intrinsics import Intrinsics
+from calib_commons.intrinsics import Intrinsics
 import os
 import cv2
 

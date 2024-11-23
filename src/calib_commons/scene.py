@@ -1,14 +1,14 @@
 from typing import List, Dict
 import numpy as np
 from enum import Enum 
-from calibCommons.camera import Camera
-from calibCommons.objectPoint import ObjectPoint
-from calibCommons.observation import Observation
-from calibCommons.intrinsics import Intrinsics
-from calibCommons.types import idtype
-from calibCommons.utils.se3 import q_from_T
+from calib_commons.camera import Camera
+from calib_commons.objectPoint import ObjectPoint
+from calib_commons.observation import Observation
+from calib_commons.intrinsics import Intrinsics
+from calib_commons.types import idtype
+from calib_commons.utils.se3 import q_from_T
 
-from calibCommons.data.data_json import save_cameras_poses_to_json
+from calib_commons.data.data_json import save_cameras_poses_to_json
 
 class SceneType(Enum): 
     SYNTHETIC = "Synthetic"

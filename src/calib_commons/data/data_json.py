@@ -2,8 +2,8 @@
 import json
 import numpy as np
 
-from calibCommons.utils.se3 import q_from_T
-from calibCommons.camera import Camera
+from calib_commons.utils.se3 import q_from_T
+from calib_commons.camera import Camera
 
 def save_cameras_poses_to_json(cameras, path): 
         data = {}

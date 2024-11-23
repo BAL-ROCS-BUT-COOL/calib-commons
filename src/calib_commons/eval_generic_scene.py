@@ -4,10 +4,10 @@ from scipy import stats
 import json
 import copy
 
-from calibCommons.scene import Scene
-from calibCommons.observation import Observation
-from calibCommons.types import idtype
-from calibCommons.utils.utils import view_score
+from calib_commons.scene import Scene
+from calib_commons.observation import Observation
+from calib_commons.types import idtype
+from calib_commons.utils.utils import view_score
 
 
 def eval_reprojection_error(errors_x_y: np.ndarray):

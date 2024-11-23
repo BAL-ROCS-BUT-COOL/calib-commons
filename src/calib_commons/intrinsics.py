@@ -2,7 +2,7 @@ import numpy as np
 from typing import Tuple
 
 # from externalCalibrationPlanarPoints.utils import utils
-from calibCommons.utils import utils
+from calib_commons.utils import utils
 class Intrinsics: 
 
     def __init__(self, 

@@ -3,7 +3,7 @@ import cv2
 from skspatial.objects import Points, Plane
 from typing import Tuple
 
-# from calibCommons.utils
+# from calib_commons.utils
 
 
 def view_score(image_points: np.ndarray, 

@@ -5,12 +5,12 @@ from matplotlib import rcParams
 import math 
 import numpy as np
 
-from calibCommons.types import idtype
-from calibCommons.correspondences import Correspondences
-from calibCommons.scene import Scene, SceneType
-from calibCommons.eval_generic_scene import compute_reprojections_errors_x_y_in_cam
+from calib_commons.types import idtype
+from calib_commons.correspondences import Correspondences
+from calib_commons.scene import Scene, SceneType
+from calib_commons.eval_generic_scene import compute_reprojections_errors_x_y_in_cam
 
-from calibCommons.viz.visualization_tools import get_color_from_error, get_color_from_id
+from calib_commons.viz.visualization_tools import get_color_from_error, get_color_from_id
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import os
 

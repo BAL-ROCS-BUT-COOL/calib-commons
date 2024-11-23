@@ -4,8 +4,8 @@ from typing import Dict, List
 
 # from externalCalibrationPlanarPoints.calib.types import idtype
 
-from calibCommons.types import idtype
-from calibCommons.observation import Observation
+from calib_commons.types import idtype
+from calib_commons.observation import Observation
 
 Correspondences = Dict[idtype, Dict[idtype, Observation]]
 
