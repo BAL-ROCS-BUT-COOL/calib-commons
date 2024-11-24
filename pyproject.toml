@@ -13,6 +13,7 @@ dependencies = [
     "numpy",
     "opencv-python",
     "scipy",
+    "skspatial",
     "matplotlib",
     "tqdm"
 ]
