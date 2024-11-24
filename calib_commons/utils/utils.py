@@ -1,6 +1,5 @@
 import numpy as np
 import cv2 
-from skspatial.objects import Points, Plane
 from typing import Tuple
 
 # from calib_commons.utils
