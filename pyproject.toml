@@ -22,3 +22,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent"
 ]
+
+[project.scripts]
+calibrate-intrinsics = "calib_commons.scripts.internal_calibration:main"
