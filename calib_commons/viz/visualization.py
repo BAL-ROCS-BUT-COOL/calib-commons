@@ -53,7 +53,8 @@ def visualize_scenes(scenes: List[Scene], show_ids = True, show_only_points_with
                 save_path = None, 
                 dpi = 300, 
                 elev=None, 
-                azim = None) -> None: 
+                azim = None,
+                colors = None) -> None: 
     fig = plt.figure(figsize=(6, 6)) 
     rcParams['text.usetex'] = True
     ax = fig.add_subplot(projection='3d')
@@ -148,10 +149,6 @@ def visualize_scenes(scenes: List[Scene], show_ids = True, show_only_points_with
 
 def visualize_2d(scene: Scene = None, 
                 observations = None, 
-                displayObservations = True,
-                cmap = "id",
-                subplots = True, 
-                intrinsics = None, 
                 show_only_points_with_both_obsv_and_repr=True,
                 show_ids = True, 
                 which = "both",
@@ -218,8 +215,8 @@ def visualize_2d(scene: Scene = None,
         axsUsed[axIndex] = True
         axIndex += 1
         
-        resX = intrinsics[cameraId].resolution[0]
-        resY = intrinsics[cameraId].resolution[1]
+        resX = scene.cameras[cameraId].intrinsics.resolution[0]
+        resY = scene.cameras[cameraId].intrinsics.resolution[1]
         ax.set_xlim((0, resX))
         ax.set_ylim((resY, 0))
         aspect_ratio = resY / resX
@@ -359,7 +356,7 @@ def plot_observations_in_camera(correspondences,
 
   
 
-def plot_scene(scene: Scene, xlim, ylim, zlim, show_ids = True, points_ids = None) -> None: 
+def plot_scene(scene: Scene, xlim, ylim, zlim, show_ids = True, points_ids = None, colors = None ) -> None: 
     mod = MODIFIERS[scene.type]
     marker = MARKERS_3D_POINTS[scene.type]
 

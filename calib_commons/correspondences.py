@@ -1,5 +1,5 @@
 from typing import Dict, List
-
+import numpy as np
 # from externalCalibrationPlanarPoints.calib.observation import Observation
 
 # from externalCalibrationPlanarPoints.calib.types import idtype
@@ -75,3 +75,18 @@ def filter_correspondences_with_track_length(correspondences: Correspondences,
 #     for camera_id, observations in correspondences.items():
 #         correspondences_filtered[camera_id] = {id: obs for id, obs in observations.items() if (not id_min or id >= id_min) and (not id_max or id <= id_max)}
 #     return correspondences_filtered
+
+
+
+def convert_correspondences_nparray_to_correspondences(correspondences_nparray):
+    correspondences = {}
+    for cam_id in correspondences_nparray:
+        correspondences[cam_id] = {}
+        for checker_id, _2d in correspondences_nparray[cam_id].items():
+            for i in range(len(_2d)):
+                pt = _2d[i,:]
+                if not np.isnan(pt).any():  # Check if neither coordinate is NaN
+                    global_id = f"{checker_id}_{i}"
+                    correspondences[cam_id][global_id] = Observation(_2d=pt)
+
+    return correspondences

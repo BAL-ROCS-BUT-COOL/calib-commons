@@ -49,6 +49,7 @@ def set_color_map(checker_ids):
         IDMIN = min(checker_ids)
         IDMAX = max(checker_ids)
 
+
 def get_color_from_id(id, cmap_="random"): 
     # id = int(id.split('_')[1])
     if cmap_ == "random": 
