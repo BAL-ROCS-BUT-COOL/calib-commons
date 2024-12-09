@@ -2,7 +2,16 @@
 
 A Python package of utilities for the Python packages [`calib-board`](https://github.com/tflueckiger/calib-board) and [`calib-proj`](https://github.com/tflueckiger/calib-proj) which perform **external calibration** of multi-camera systems, and some additional tools.
 
----
+
+
+## **Package content**
+
+The package contains utilities for the Python packages [`calib-board`](https://github.com/tflueckiger/calib-board) and [`calib-proj`](https://github.com/tflueckiger/calib-proj). 
+
+In addition, the packages provides some tools: 
+- [calibrate-intrinsics](#calibrate-intrinsics): CLI tool for automatic internal calibration of multiple cameras
+- [calib-eval](#calib-eval): script for evaluating a given calibration of a multi-camera system on an evaluation dataset
+
 
 ## **Installation**
 
@@ -24,13 +33,6 @@ A Python package of utilities for the Python packages [`calib-board`](https://gi
 
 ---
 
-## **Package content**
-
-The package contains utilities for the Python packages [`calib-board`](https://github.com/tflueckiger/calib-board) and [`calib-proj`](https://github.com/tflueckiger/calib-proj). 
-
-In addition, the packages provides some tools: 
-- [calibrate-intrinsics](#calibrate-intrinsics): CLI tool for internal calibration
-- [calib-eval](#calib-eval): script for evaluating a given camera calibration using an evaluation dataset
 
 
 ## **calibrate-intrinsics**
@@ -97,7 +99,7 @@ The package provide a command-line tool **calibrate-intrinsics** for automatic i
 > For detailed usage, run `calibrate-intrinsics --help`.
 
 ### Output 
-The tool will create a result directory at the specified location (see `calibrate-intrinsics --help`), with a folder containing camera intrinsics in .json files. 
+The tool will create a result directory at the specified location (see `calibrate-intrinsics --help`), with a folder containing camera intrinsics in .json files, each containing a camera intrinsics matrix and distorsion coefficients in the [OpenCV convention](https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html).
 ```plaintext
 camera_intrinsics/
 ├── camera1_intrinsics.json
@@ -159,7 +161,7 @@ images_directory/
 - Filenames **must match across cameras** to ensure synchronization (e.g., `1.jpg` in `camera1` corresponds to `1.jpg` in `camera2`).
 
 ### How does the evaluation works?
-Individual correspondences between cameras are obtained using the synchronized images of the calibration board. *Individual* correspondences means that membership to boards are not considered. The calibration board is only used to obtain accurate inter-camera correspondences. The evaluation consist of **inimizing the total reprojection error**:
+Individual correspondences between cameras are obtained using the synchronized images of the calibration board. *Individual* correspondences means that membership to boards are not considered. The calibration board is only used to obtain accurate inter-camera correspondences. The evaluation consist of **minimizing the total reprojection error**:
 
 - First, initial estimates of 3D points are obtained by performing pairwise triangulation between cameras. If a 3D point is calculated multiple times from different camera pairs, the median of these computed coordinates is taken as the initial estimate for that 3D point.
 
@@ -178,7 +180,18 @@ Individual correspondences between cameras are obtained using the synchronized i
    ```bash
    python calib_commons/scripts/run_calib_eval.py
    ```
-The evaluation metrics (notably the **reprojection errors**) are saved in results/metrics.json.
+
+### Output 
+
+The following **evaluation metrics**, per camera and overall, are saved in results/metrics.json: 
+- mean **reprojection error**
+- standard deviation of the reprojection error
+- view score of the cameras for the evaluation dataset (score introduced and used by [COLMAP](https://openaccess.thecvf.com/content_cvpr_2016/papers/Schonberger_Structure-From-Motion_Revisited_CVPR_2016_paper.pdf))
+- number of correspondences for each cameras 
+
+> The *number of correspondences* of a camera corresponds to the number of conform observations a camera has of object (=3D) points with a track length higher or equal to 2. 
+
+> The *track* of an object (=3D) point is the set of cameras in which the point is observed, and for which the observation is conform. 
 
 ---
 
