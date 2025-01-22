@@ -48,7 +48,7 @@ def extract_frames_from_video(video_path, output_dir, sampling_step):
         cv2.imwrite(frame_filename, frame)
     video.release()
 
-def calibrate_camera_from_images(images_path, square_size, col, row):
+def calibrate_camera_from_images(images_path, square_size, col, row, show_corners=False):
     objp = np.zeros((row * col, 3), np.float32)
     objp[:, :2] = np.mgrid[0:col, 0:row].T.reshape(-1, 2) * square_size
 
@@ -69,20 +69,30 @@ def calibrate_camera_from_images(images_path, square_size, col, row):
             objpoints.append(objp)
             imgpoints.append(corners2)
 
+            if show_corners:
+                img = cv2.drawChessboardCorners(img, (col, row), corners2, ret)
+        # elif show_corners:
+        #     print(f"No corners detected in {filename}. Showing raw image.")
+
+        if show_corners:
+            cv2.imshow('Image with Corners', img)
+            key = cv2.waitKey(0)
+            if key == 27:  # Press 'Esc' to exit early
+                break
+
+    cv2.destroyAllWindows()
+
     if len(objpoints) == 0:
         raise ValueError("No valid chessboard patterns were detected.")
-    
+
     print(f"Detected chessboard patterns in {len(objpoints)} out of {len(files)} images.")
-    
+
     ret, mtx, dist, _, _ = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
-    print(f"Camera calibrated with reprojection error (RMSE): {ret} [pix]")
+    print(f"Camera calibrated with reprojection error (RMSE): {ret:.2f} [pix]")
 
     return ret, mtx, dist
 
-def main(args=None):
-
-   
-
+def main():
     parser = argparse.ArgumentParser(description="Camera calibration script using videos or images.")
     parser.add_argument("--use_videos", action="store_true", help="Set this flag to use videos instead of images.")
     parser.add_argument("--data_directory", type=str, default=None, help="Path to the data directory.")
@@ -91,34 +101,25 @@ def main(args=None):
     parser.add_argument("--chessboard_width", type=int, required=True, help="Number of inner corners in chessboard width.")
     parser.add_argument("--chessboard_height", type=int, required=True, help="Number of inner corners in chessboard height.")
     parser.add_argument("--sampling_step", type=int, default=45, help="Number of frames to skip during frame extraction (used only with videos).")
+    parser.add_argument("--show_corners", action="store_true", help="Show detected corners on the images.")
 
     args = parser.parse_args()
 
-    # Set data_directory to current working directory if not provided
-    if args.data_directory is None:
-        data_directory = os.getcwd()
-    else: 
-        data_directory = args.data_directory
+    data_directory = args.data_directory or os.getcwd()
+    output_parent_directory = args.output_parent_directory or data_directory
 
-    if args.output_parent_directory is None:
-        output_parent_directory = data_directory
-    else: 
-        output_parent_directory = args.output_parent_directory
-    
-    output_directory = os.path.join(output_parent_directory, "calibrate_intrinsics_output")
-    # Ensure the output directory exists
+    output_subfolder_name = "calibrate_intrinsics_output"
+
+    output_directory = os.path.join(output_parent_directory, output_subfolder_name)
     os.makedirs(output_directory, exist_ok=True)
 
-    # Define the camera_intrinsics directory
     intrinsics_dir = os.path.join(output_directory, "camera_intrinsics")
     os.makedirs(intrinsics_dir, exist_ok=True)
-
 
     if args.use_videos:
         sampled_frames_dir = os.path.join(output_directory, "sampled_frames")
         os.makedirs(sampled_frames_dir, exist_ok=True)
         images_directory = sampled_frames_dir
-
 
         for video_file in os.listdir(data_directory):
             if video_file.lower().endswith(('.mp4', '.mkv', '.avi')):
@@ -133,18 +134,16 @@ def main(args=None):
     else:
         images_directory = data_directory
 
-
     for folder in os.listdir(images_directory):
-        if folder == os.path.basename(output_parent_directory):
+        if folder == output_subfolder_name:
             continue
         folder_path = os.path.join(images_directory, folder)
         if os.path.isdir(folder_path):
             print(f"Calibrating camera for {folder}...")
-            ret, mtx, dist = calibrate_camera_from_images(folder_path, args.square_size, args.chessboard_width, args.chessboard_height)
+            ret, mtx, dist = calibrate_camera_from_images(folder_path, args.square_size, args.chessboard_width, args.chessboard_height, args.show_corners)
             intrinsics_file = os.path.join(intrinsics_dir, f'{folder}_intrinsics.json')
-            save_calibration_to_json(mtx, dist, intrinsics_file)                
+            save_calibration_to_json(mtx, dist, intrinsics_file)
             print(f"Calibration data saved for {folder}.")
 
 if __name__ == "__main__":
-   
     main()
