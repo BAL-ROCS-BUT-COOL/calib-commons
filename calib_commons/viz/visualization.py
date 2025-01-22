@@ -54,7 +54,8 @@ def visualize_scenes(scenes: List[Scene], show_ids = True, show_only_points_with
                 dpi = 300, 
                 elev=None, 
                 azim = None,
-                colors = None) -> None: 
+                colors = None, 
+                frustum_scaling = 1) -> None: 
     fig = plt.figure(figsize=(6, 6)) 
     rcParams['text.usetex'] = True
     ax = fig.add_subplot(projection='3d')
@@ -135,7 +136,7 @@ def visualize_scenes(scenes: List[Scene], show_ids = True, show_only_points_with
     # ax.zaxis.pane.fill = False
 
     for scene in scenes: 
-        plot_scene(scene, xlim, ylim, zlim, show_ids, points_ids)
+        plot_scene(scene, xlim, ylim, zlim, show_ids, points_ids, frustum_scaling=frustum_scaling)
 
         if save_fig:
                 # Create the directory if it does not exist
@@ -356,17 +357,18 @@ def plot_observations_in_camera(correspondences,
 
   
 
-def plot_scene(scene: Scene, xlim, ylim, zlim, show_ids = True, points_ids = None, colors = None ) -> None: 
+def plot_scene(scene: Scene, xlim, ylim, zlim, show_ids = True, points_ids = None, colors = None, frustum_scaling=1) -> None: 
     mod = MODIFIERS[scene.type]
     marker = MARKERS_3D_POINTS[scene.type]
 
     if points_ids == None:
         points_ids = list(scene.object_points.keys())
+        
 
     ax = plt.gca() 
     for camera in scene.cameras.values(): 
         name = r"$\{" + mod + r"{C}_{" + str(camera.id) + r"}\}$"
-        camera.plot(name)
+        camera.plot(name, frustum_scaling=frustum_scaling)
 
     for point_id in points_ids:
         point = scene.object_points[point_id]

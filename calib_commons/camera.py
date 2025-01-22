@@ -26,10 +26,10 @@ class Camera:
                   object_points_in_world) -> np.ndarray: 
         return utils.reproject(self.intrinsics.compute_projection_matrix(self.pose.mat), object_points_in_world)
         
-    def plot(self, name = None, ax=None) -> None: 
+    def plot(self, name = None, ax=None,frustum_scaling=1) -> None: 
         if name == None:
             name = r"$\{C_{" + str(self.id) + r"}\}$"
-        plot_camera(self.pose.mat, name, size=0.3, ax=ax)
+        plot_camera(self.pose.mat, name, size=0.3*frustum_scaling, ax=ax)
        
 
     def backproject_points_using_plane(self, 
