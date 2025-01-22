@@ -46,6 +46,9 @@ def q_from_T(T: np.ndarray) -> np.ndarray:
     q[3:] = t
     return q
 
+def T_from_quat_t(quat: np.ndarray, t: np.ndarray, scalar_first=False) -> np.ndarray:
+    return T_from_rt(scipy.spatial.transform.Rotation.from_quat(quat, scalar_first=scalar_first).as_matrix(), t)
+
 
 class SE3:
     def __init__(self, mat):
