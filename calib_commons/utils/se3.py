@@ -29,7 +29,8 @@ def T_from_rt(R, t):
 def rvec_tvec_from_T(T: np.ndarray) -> Tuple[np.ndarray, np.ndarray]: 
     rvec = scipy.spatial.transform.Rotation.from_matrix(T[:3, :3]).as_rotvec()
     tvec = T[:3, 3]
-    return rvec[:, np.newaxis], tvec[:, np.newaxis]
+    # return rvec[:, np.newaxis], tvec[:, np.newaxis]
+    return rvec, tvec
 
 def T_from_rvec_tvec(rvec: np.ndarray, tvec: np.ndarray) -> np.ndarray: 
     R, _ = cv2.Rodrigues(rvec)

@@ -5,6 +5,11 @@ from typing import Tuple
 # from calib_commons.utils
 
 
+def K_from_params(fx: float, fy: float, cx: float, cy: float) -> np.ndarray:
+    return np.array([[fx, 0,  cx], 
+                     [0,  fy, cy], 
+                     [0,  0,  1]])
+
 def view_score(image_points: np.ndarray, 
                    image_resolution: Tuple):
         s = 0
