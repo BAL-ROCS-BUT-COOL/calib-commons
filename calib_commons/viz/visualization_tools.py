@@ -74,15 +74,15 @@ def create_color_list(N, start_color, end_color):
     colors = [cmap(i / (N - 1)) for i in range(N)]
     return colors
 
-def plot_camera_pyramid(extrinsic, color='r', focal_len_scaled=5, aspect_ratio=1, ax=None):
+def plot_camera_pyramid(extrinsic, color='r', focal_len_scaled=5, aspect_ratio=1, aspect_ratio_x_y=1, ax=None):
     if ax is None: 
         ax = plt.gca()
 
     vertex_std = np.array([[0, 0, 0, 1],
-                           [focal_len_scaled * aspect_ratio, -focal_len_scaled * aspect_ratio, focal_len_scaled, 1],
-                           [focal_len_scaled * aspect_ratio, focal_len_scaled * aspect_ratio, focal_len_scaled, 1],
-                           [-focal_len_scaled * aspect_ratio, focal_len_scaled * aspect_ratio, focal_len_scaled, 1],
-                           [-focal_len_scaled * aspect_ratio, -focal_len_scaled * aspect_ratio, focal_len_scaled, 1]])
+                           [focal_len_scaled * aspect_ratio*aspect_ratio_x_y, -focal_len_scaled * aspect_ratio, focal_len_scaled, 1],
+                           [focal_len_scaled * aspect_ratio*aspect_ratio_x_y, focal_len_scaled * aspect_ratio, focal_len_scaled, 1],
+                           [-focal_len_scaled * aspect_ratio*aspect_ratio_x_y, focal_len_scaled * aspect_ratio, focal_len_scaled, 1],
+                           [-focal_len_scaled * aspect_ratio*aspect_ratio_x_y, -focal_len_scaled * aspect_ratio, focal_len_scaled, 1]])
     vertex_transformed = vertex_std @ extrinsic.T
     meshes = [[vertex_transformed[0, :-1], vertex_transformed[1][:-1], vertex_transformed[2, :-1]],
               [vertex_transformed[0, :-1], vertex_transformed[2, :-1], vertex_transformed[3, :-1]],
@@ -123,8 +123,8 @@ def plot_frame(T, name, axis_length, ax=None):
     x, y, z = p[0], p[1], p[2]
     ax.text(x, y, z, name, color='black', fontsize=10)
 
-def plot_camera(pose, name, size=0.3, ax=None): 
-    plot_camera_pyramid(pose, 'c', size, 0.4, ax)
+def plot_camera(pose, name, size=0.3, ax=None, aspect_ratio_x_y_=1): 
+    plot_camera_pyramid(pose, 'c', size, 0.4, aspect_ratio_x_y_, ax)
     plot_frame(pose, name, axis_length=size, ax=ax)
 
 if __name__ == '__main__':

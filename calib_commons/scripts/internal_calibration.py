@@ -122,7 +122,7 @@ def main():
         images_directory = sampled_frames_dir
 
         for video_file in os.listdir(data_directory):
-            if video_file.lower().endswith(('.mp4', '.mkv', '.avi')):
+            if video_file.lower().endswith(('.mp4', '.mkv', '.avi', '.mov')):
                 camera_name = Path(video_file).stem
                 camera_output_dir = os.path.join(sampled_frames_dir, camera_name)
                 os.makedirs(camera_output_dir, exist_ok=True)
