@@ -1,10 +1,13 @@
 import os
+import random
 import cv2
 import numpy as np
 import json
 import argparse
 from tqdm import tqdm
 from pathlib import Path
+
+from calib_commons.utils.utils import criticality_score, discard_blurry
 
 def save_calibration_to_json(mtx, dist, filename):
     calibration_data = {
@@ -48,7 +51,18 @@ def extract_frames_from_video(video_path, output_dir, sampling_step):
         cv2.imwrite(frame_filename, frame)
     video.release()
 
-def calibrate_camera_from_images(images_path, square_size, col, row, show_corners=False):
+def calibrate_camera_from_images(
+        images_path, 
+        square_size, 
+        col, 
+        row, 
+        show_corners=False, 
+        skip=[], 
+        error_threshold=3, 
+        blur_threshold=25,
+        max_frames=150
+    ):
+
     objp = np.zeros((row * col, 3), np.float32)
     objp[:, :2] = np.mgrid[0:col, 0:row].T.reshape(-1, 2) * square_size
 
@@ -56,10 +70,17 @@ def calibrate_camera_from_images(images_path, square_size, col, row, show_corner
     corner_sub_pix_win_size = 11
 
     objpoints, imgpoints = [], []
-    files = sorted([f for f in os.listdir(images_path) if f.lower().endswith(('png', 'jpg', 'jpeg'))])
+    files = [os.path.join(images_path, f) for f in os.listdir(images_path) if (f.lower().endswith(('png', 'jpg', 'jpeg'))) and (f not in skip)]
 
-    for filename in tqdm(files, desc="Processing images"):
-        file_path = os.path.join(images_path, filename)
+    # Discard blurriest images
+    files = discard_blurry(files, percentile=blur_threshold)
+
+    n_frames = min(len(files), max_frames)
+    files = random.sample(files, n_frames)
+
+    skip_next = skip.copy()
+
+    for file_path in tqdm(files, desc="Processing images"):
         img = cv2.imread(file_path)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
@@ -71,6 +92,8 @@ def calibrate_camera_from_images(images_path, square_size, col, row, show_corner
 
             if show_corners:
                 img = cv2.drawChessboardCorners(img, (col, row), corners2, ret)
+        else:
+            skip_next.append(file_path)
         # elif show_corners:
         #     print(f"No corners detected in {filename}. Showing raw image.")
 
@@ -87,8 +110,26 @@ def calibrate_camera_from_images(images_path, square_size, col, row, show_corner
 
     print(f"Detected chessboard patterns in {len(objpoints)} out of {len(files)} images.")
 
-    ret, mtx, dist, _, _ = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+    scores = criticality_score(imgpoints, img.shape[:2])
+    not_important = lambda i: scores[i] < np.percentile(scores, 75)
+
+    ret, mtx, dist, _, _, _, _, perViewError = cv2.calibrateCameraExtended(objpoints, imgpoints, gray.shape[::-1], None, None)
     print(f"Camera calibrated with reprojection error (RMSE): {ret:.2f} [pix]")
+
+    valid_frames = [f for f in files if f not in skip_next]
+    high_error = [f for i, f in enumerate(valid_frames) if perViewError[i] > error_threshold and not_important(i)]
+
+    if high_error:
+        return calibrate_camera_from_images(
+            images_path, 
+            square_size, 
+            col, 
+            row, 
+            show_corners, 
+            skip_next + high_error, 
+            error_threshold, 
+            max_frames
+        )
 
     return ret, mtx, dist
 

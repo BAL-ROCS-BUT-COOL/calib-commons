@@ -49,4 +49,40 @@ def reproject(P: np.ndarray,
     return _2d 
 
 
+def criticality_score(boards: list[np.ndarray], img_shape: tuple[int, int], granularity=100) -> list[int]:
+    
+    shape = (img_shape[1] // granularity + 1, img_shape[0] // granularity + 1)
+    grid = np.zeros(shape)
+
+    # Insert points into bins
+    for board in boards:
+         for u, v in board:
+              x, y = int(u // granularity), int(v // granularity)
+              grid[x, y] += 1
+
+    scores = []
+    for board in boards:
+        score = 0
+        for u, v in board:
+            x, y = int(u // granularity), int(v // granularity)
+            score += 1. / grid[x, y]
+        scores.append(score)
+    
+    return scores
+
+
+def discard_blurry(paths, percentile=25):
+    blur = []
+    for path in paths:
+        img = cv2.imread(path)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        # Exclude images with too much blur
+        blur_measure = cv2.Laplacian(gray, ddepth=cv2.CV_64F).var()
+        blur.append(blur_measure)
+
+    threshold = np.percentile(blur, percentile)
+    indices = np.where(blur <= threshold)[0]
+
+    return [p for i, p in enumerate(paths) if i not in indices]
 
