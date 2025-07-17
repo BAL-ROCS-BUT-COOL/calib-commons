@@ -86,3 +86,9 @@ def discard_blurry(paths, percentile=25):
 
     return [p for i, p in enumerate(paths) if i not in indices]
 
+def blur_score(path):
+    img = cv2.imread(path)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    
+    return cv2.Laplacian(gray, ddepth=cv2.CV_64F).var()
+

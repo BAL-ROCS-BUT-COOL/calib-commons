@@ -4,10 +4,11 @@ import cv2
 import numpy as np
 import json
 import argparse
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 from pathlib import Path
 
-from calib_commons.utils.utils import criticality_score, discard_blurry
+from calib_commons.utils.utils import blur_score
 
 def save_calibration_to_json(mtx, dist, filename):
     calibration_data = {
@@ -56,10 +57,8 @@ def calibrate_camera_from_images(
         square_size, 
         col, 
         row, 
-        show_corners=False, 
-        skip=[], 
-        error_threshold=3, 
-        blur_threshold=25,
+        debug=True, 
+        error_threshold=3,
         max_frames=150
     ):
 
@@ -70,15 +69,12 @@ def calibrate_camera_from_images(
     corner_sub_pix_win_size = 11
 
     objpoints, imgpoints = [], []
-    files = [os.path.join(images_path, f) for f in os.listdir(images_path) if (f.lower().endswith(('png', 'jpg', 'jpeg'))) and (f not in skip)]
-
-    # Discard blurriest images
-    files = discard_blurry(files, percentile=blur_threshold)
+    files = [os.path.join(images_path, f) for f in os.listdir(images_path) if (f.lower().endswith(('png', 'jpg', 'jpeg')))]
 
     n_frames = min(len(files), max_frames)
-    files = random.sample(files, n_frames)
 
-    skip_next = skip.copy()
+    # Consider least blurry images
+    files = sorted(files, key=blur_score, reverse=True)[:n_frames]
 
     for file_path in tqdm(files, desc="Processing images"):
         img = cv2.imread(file_path)
@@ -90,14 +86,16 @@ def calibrate_camera_from_images(
             objpoints.append(objp)
             imgpoints.append(corners2)
 
-            if show_corners:
+            if debug:
                 img = cv2.drawChessboardCorners(img, (col, row), corners2, ret)
-        else:
-            skip_next.append(file_path)
-        # elif show_corners:
-        #     print(f"No corners detected in {filename}. Showing raw image.")
 
-        if show_corners:
+        if debug:
+            h, w = img.shape[:2]
+            scale = 0.3
+            disp_w, disp_h = int(w * scale), int(h * scale)
+            # create a resizable window once
+            cv2.namedWindow('Image with Corners', cv2.WINDOW_NORMAL)
+            cv2.resizeWindow('Image with Corners', disp_w, disp_h)
             cv2.imshow('Image with Corners', img)
             key = cv2.waitKey(0)
             if key == 27:  # Press 'Esc' to exit early
@@ -110,26 +108,21 @@ def calibrate_camera_from_images(
 
     print(f"Detected chessboard patterns in {len(objpoints)} out of {len(files)} images.")
 
-    scores = criticality_score(imgpoints, img.shape[:2])
-    not_important = lambda i: scores[i] < np.percentile(scores, 75)
-
     ret, mtx, dist, _, _, _, _, perViewError = cv2.calibrateCameraExtended(objpoints, imgpoints, gray.shape[::-1], None, None)
-    print(f"Camera calibrated with reprojection error (RMSE): {ret:.2f} [pix]")
 
-    valid_frames = [f for f in files if f not in skip_next]
-    high_error = [f for i, f in enumerate(valid_frames) if perViewError[i] > error_threshold and not_important(i)]
+    if debug:
+        plt.hist(perViewError)
+        plt.show()
 
-    if high_error:
-        return calibrate_camera_from_images(
-            images_path, 
-            square_size, 
-            col, 
-            row, 
-            show_corners, 
-            skip_next + high_error, 
-            error_threshold, 
-            max_frames
-        )
+    while np.any(perViewError > error_threshold):
+        keep = np.where(perViewError <= error_threshold)[0]
+        print(f"Found {len(objpoints) - len(keep)} outlier(s), rerunning calibration")
+        objpoints = [objpoints[i] for i in keep]
+        imgpoints = [imgpoints[i] for i in keep]
+        
+        ret, mtx, dist, _, _, _, _, perViewError = cv2.calibrateCameraExtended(objpoints, imgpoints, gray.shape[::-1], None, None)
+
+    print(f"Camera calibrated with reprojection error (RMSE): {ret:.2f} [pix]") 
 
     return ret, mtx, dist
 
@@ -142,7 +135,7 @@ def main():
     parser.add_argument("--chessboard_width", type=int, required=True, help="Number of inner corners in chessboard width.")
     parser.add_argument("--chessboard_height", type=int, required=True, help="Number of inner corners in chessboard height.")
     parser.add_argument("--sampling_step", type=int, default=45, help="Number of frames to skip during frame extraction (used only with videos).")
-    parser.add_argument("--show_corners", action="store_true", help="Show detected corners on the images.")
+    parser.add_argument("--debug", action="store_true", help="Show detected corners on the images.")
 
     args = parser.parse_args()
 
@@ -181,7 +174,7 @@ def main():
         folder_path = os.path.join(images_directory, folder)
         if os.path.isdir(folder_path):
             print(f"Calibrating camera for {folder}...")
-            ret, mtx, dist = calibrate_camera_from_images(folder_path, args.square_size, args.chessboard_width, args.chessboard_height, args.show_corners)
+            ret, mtx, dist = calibrate_camera_from_images(folder_path, args.square_size, args.chessboard_width, args.chessboard_height, args.debug)
             intrinsics_file = os.path.join(intrinsics_dir, f'{folder}_intrinsics.json')
             save_calibration_to_json(mtx, dist, intrinsics_file)
             print(f"Calibration data saved for {folder}.")
