@@ -71,7 +71,7 @@ def criticality_score(boards: list[np.ndarray], img_shape: tuple[int, int], gran
     return scores
 
 
-def discard_blurry(paths, percentile=25):
+def discard_blurry(paths: list[str], percentile: int = 25) -> list[str]:
     blur = []
     for path in paths:
         img = cv2.imread(path)
@@ -86,7 +86,7 @@ def discard_blurry(paths, percentile=25):
 
     return [p for i, p in enumerate(paths) if i not in indices]
 
-def blur_score(path):
+def blur_score(path: str) -> float:
     img = cv2.imread(path)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
