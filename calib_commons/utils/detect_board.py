@@ -64,11 +64,11 @@ def detect_chessboards(images_parent_folder: str,
                 os.makedirs(image_folder + "\\extracted_corners")
                 
         if undistort:
-            camera_matrix, distortion_coeffs, _ = load_intrinsics(intrinsics_paths[cam])
+            camera_matrix, distortion_coeffs = load_intrinsics(intrinsics_paths[cam])
 
         files = os.listdir(image_folder)
         files = [f for f in files if f.endswith(('.png', '.jpg', '.jpeg'))]
-        files.sort(key=lambda x: int(x.split('_')[0]))
+        files.sort(key=lambda x: int(x.split('.')[0]))
         
         for filename in tqdm(files, desc=f"Processing camera {cam}", total=len(files), leave=False):        
             k = int(filename.split('.')[0])
