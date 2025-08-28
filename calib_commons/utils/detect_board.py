@@ -1,207 +1,262 @@
-import cv2 as cv
 import os
-import numpy as np
-from typing import Dict
 from enum import Enum
+from typing import Dict, Optional
+
+import cv2 as cv
+import numpy as np
 from tqdm import tqdm
 
 from calib_commons.data.load_calib import load_intrinsics
-# from calib_board.core.observationCheckerboard import ObservationCheckerboard
 
 
-class BoardType(Enum): 
+class BoardType(Enum):
     CHESSBOARD = "chessboard"
     CHARUCO = "charuco"
 
-def detect_board_corners(images_parent_folder: str, 
-                         board_type: BoardType,
-                         charuco_detector: cv.aruco.CharucoDetector,
-                        columns: int, 
-                        rows: int, 
-                        intrinsics_folder: str,
-                        undistort: bool = True, 
-                        display: bool = False, 
-                        save_images_with_overlayed_detected_corners: bool = True) -> Dict[str, Dict[int, np.array]]:
-    
-    # camera_names = list({image_file.stem.split('_')[0] for ext in ["*.jpg", "*.png", "*.jpeg"] for image_file in images_parent_folder.glob(ext)})
 
-    
-    # intrinsics_folder = 
-    correspondences_array = {}  # dict by cam id
+def detect_board_corners(
+    images_parent_folder: str,
+    board_type: BoardType,
+    charuco_detector: cv.aruco.CharucoDetector,
+    columns: int,
+    rows: int,
+    intrinsics_path: str,
+    undistort: bool = True,
+    display: bool = False,
+    save_images_with_overlayed_detected_corners: bool = True,
+) -> Dict[str, Dict[int, np.ndarray]]:
+    """
+    Dispatch to the appropriate detector and return a nested dict of
+    correspondences. intrinsics_path can be a directory (per-camera JSONs)
+    or a joint JSON file.
+    """
     if board_type == BoardType.CHESSBOARD:
-        correspondences_array = detect_chessboards(images_parent_folder, columns, rows, intrinsics_folder, undistort, display, save_images_with_overlayed_detected_corners)
-    elif board_type == BoardType.CHARUCO:
-        correspondences_array = detect_charuco(images_parent_folder, charuco_detector, columns, rows, intrinsics_folder, undistort, display, save_images_with_overlayed_detected_corners)
-    else:
-        raise ValueError("board_type must be either 'chessboard' or 'charuco'")
-    return correspondences_array
-        
+        return detect_chessboards(
+            images_parent_folder=images_parent_folder,
+            columns=columns,
+            rows=rows,
+            intrinsics_path=intrinsics_path,
+            undistort=undistort,
+            display=display,
+            save_images_with_overlayed_detected_corners=(
+                save_images_with_overlayed_detected_corners
+            ),
+        )
+    if board_type == BoardType.CHARUCO:
+        return detect_charuco(
+            images_parent_folder=images_parent_folder,
+            charuco_detector=charuco_detector,
+            columns=columns,
+            rows=rows,
+            intrinsics_path=intrinsics_path,
+            undistort=undistort,
+            display=display,
+            save_images_with_overlayed_detected_corners=(
+                save_images_with_overlayed_detected_corners
+            ),
+        )
+    raise ValueError("board_type must be either 'chessboard' or 'charuco'")
 
-def detect_chessboards(images_parent_folder: str, 
-                       columns: int, 
-                       rows: int, 
-                       intrinsics_folder: str = None, 
-                       undistort: bool = True, 
-                       display: bool = False, 
-                       save_images_with_overlayed_detected_corners: bool = True) -> Dict[str, Dict[int, np.array]]:
-    
-    # camera_names = list({image_file.stem.split('_')[0] for ext in ["*.jpg", "*.png", "*.jpeg"] for image_file in images_parent_folder.glob(ext)})
-    image_folders = {cam: os.path.join(images_parent_folder, cam) for cam in os.listdir(images_parent_folder) if os.path.isdir(os.path.join(images_parent_folder, cam))}
 
-    intrinsics_paths = {cam: os.path.join(intrinsics_folder, cam + "_intrinsics.json") for cam in image_folders}
+def _camera_folders(images_parent_folder: str) -> Dict[str, str]:
+    return {
+        cam: os.path.join(images_parent_folder, cam)
+        for cam in os.listdir(images_parent_folder)
+        if os.path.isdir(os.path.join(images_parent_folder, cam))
+    }
 
-    correspondences = {}  # dict by cam id
 
-    ## PARAMS ##
-    criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+def _load_intrinsics(
+    intrinsics_path: str,
+    cam: str,
+    use_dir: bool,
+) -> tuple[np.ndarray, np.ndarray]:
+    if use_dir:
+        per_cam_file = os.path.join(
+            intrinsics_path, f"{cam}_intrinsics.json"
+        )
+        return load_intrinsics(per_cam_file, cam=None)
+    return load_intrinsics(intrinsics_path, cam=cam)
+
+
+def detect_chessboards(
+    images_parent_folder: str,
+    columns: int,
+    rows: int,
+    intrinsics_path: Optional[str] = None,
+    undistort: bool = True,
+    display: bool = False,
+    save_images_with_overlayed_detected_corners: bool = True,
+) -> Dict[str, Dict[int, np.ndarray]]:
+    """
+    Detect chessboard corners per camera and frame.
+    """
+    image_folders = _camera_folders(images_parent_folder)
+    use_dir = os.path.isdir(intrinsics_path) if intrinsics_path else False
+
+    correspondences: Dict[str, Dict[int, np.ndarray]] = {}
+    criteria = (
+        cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001
+    )
     corner_sub_pix_win_size = 5
 
-    
-    for cam, image_folder in tqdm(image_folders.items(), desc=f"Processing cameras", total=len(image_folders), leave=False): 
+    for cam, image_folder in tqdm(
+        image_folders.items(),
+        desc="Processing cameras",
+        total=len(image_folders),
+        leave=False,
+    ):
         correspondences[cam] = {}
-        if save_images_with_overlayed_detected_corners: 
-            if not os.path.exists(image_folder + "\\extracted_corners"):
-                os.makedirs(image_folder + "\\extracted_corners")
-                
-        if undistort:
-            camera_matrix, distortion_coeffs = load_intrinsics(intrinsics_paths[cam])
+        if save_images_with_overlayed_detected_corners:
+            out_dir = os.path.join(image_folder, "extracted_corners")
+            os.makedirs(out_dir, exist_ok=True)
 
-        files = os.listdir(image_folder)
-        files = [f for f in files if f.endswith(('.png', '.jpg', '.jpeg'))]
-        files.sort(key=lambda x: int(x.split('.')[0]))
-        
-        for filename in tqdm(files, desc=f"Processing camera {cam}", total=len(files), leave=False):        
-            k = int(filename.split('.')[0])
+        if undistort and intrinsics_path:
+            camera_matrix, distortion_coeffs = _load_intrinsics(
+                intrinsics_path, cam, use_dir
+            )
+        else:
+            camera_matrix, distortion_coeffs = None, None  # type: ignore
 
+        files = [
+            f for f in os.listdir(image_folder)
+            if f.endswith((".png", ".jpg", ".jpeg"))
+        ]
+        files.sort(key=lambda x: int(x.split(".")[0]))
+
+        for filename in tqdm(
+            files, desc=f"Processing camera {cam}",
+            total=len(files), leave=False
+        ):
+            k = int(filename.split(".")[0])
             file_path = os.path.join(image_folder, filename)
-            # print(filename)
 
             img = cv.imread(file_path)
             gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
-            ret, corners = cv.findChessboardCorners(gray, (columns, rows), cv.CALIB_CB_ADAPTIVE_THRESH | cv.CALIB_CB_FAST_CHECK | cv.CALIB_CB_NORMALIZE_IMAGE)  # row by row from top left point 
-            if ret:
+            ret, corners = cv.findChessboardCorners(
+                gray,
+                (columns, rows),
+                cv.CALIB_CB_ADAPTIVE_THRESH
+                | cv.CALIB_CB_FAST_CHECK
+                | cv.CALIB_CB_NORMALIZE_IMAGE,
+            )
+            if not ret:
+                continue
 
-                corners2 = np.squeeze(cv.cornerSubPix(gray, corners, (corner_sub_pix_win_size, corner_sub_pix_win_size), (-1, -1), criteria)) 
+            corners2 = np.squeeze(
+                cv.cornerSubPix(
+                    gray,
+                    corners,
+                    (corner_sub_pix_win_size, corner_sub_pix_win_size),
+                    (-1, -1),
+                    criteria,
+                )
+            )
 
-                if display:
-                    cv.drawChessboardCorners(img, (columns, rows), corners2, ret)
+            if display:
+                cv.drawChessboardCorners(img, (columns, rows), corners2, ret)
+                cv.imshow("img", img)
+                cv.waitKey(1)
+                if save_images_with_overlayed_detected_corners:
+                    cv.imwrite(os.path.join(out_dir, filename), img)
 
-                    font = cv.FONT_HERSHEY_SIMPLEX  # Font style
-                    font_scale = 0.5  # Font scale (font size)
-                    color = (255, 255, 255)  # Color of the text (BGR - white)
-                    thickness = 1  # Thickness of the lines used to draw the text
+            if undistort and camera_matrix is not None:
+                points_reshaped = corners2.reshape(-1, 1, 2)
+                undistorted_points = cv.undistortPoints(
+                    points_reshaped, camera_matrix, distortion_coeffs,
+                    P=camera_matrix,
+                )
+                _2dpoints = undistorted_points.reshape(-1, 2)
+            else:
+                _2dpoints = corners2
 
-                    text = "0"
-                    org = tuple(corners2[0, :].astype(int))
-                    cv.putText(img, text, org, font, font_scale, color, thickness, cv.LINE_AA)
-
-                    text = "1"
-                    org = tuple(corners2[1, :].astype(int))
-                    cv.putText(img, text, org, font, font_scale, color, thickness, cv.LINE_AA)
-
-                    # text = "14"
-                    # org = tuple(corners2[14, :].astype(int))
-                    # cv.putText(img, text, org, font, font_scale, color, thickness, cv.LINE_AA)
-                    
-                    cv.imshow('img', img)
-                    cv.waitKey(1)
-
-                    if save_images_with_overlayed_detected_corners:
-                        file_path_save = image_folder + "\\extracted_corners" + "\\" + filename
-                        cv.imwrite(file_path_save, img)
-
-                if undistort:
-                    points_reshaped = corners2.reshape(-1, 1, 2)
-                    undistorted_points = cv.undistortPoints(points_reshaped, camera_matrix, distortion_coeffs, P=camera_matrix)
-                    _2dpoints = undistorted_points.reshape(-1, 2)
-                else: 
-                    _2dpoints = corners2
-
-                # correspondences[cam][k] = ObservationCheckerboard(_2dpoints)
-                correspondences[cam][k] = _2dpoints
+            correspondences[cam][k] = _2dpoints
 
     return correspondences
 
-def detect_charuco(images_parent_folder: str, 
-                   charuco_detector, 
-                   columns: int, 
-                   rows: int, 
-                   intrinsics_folder: str = None, 
-                   undistort: bool = True, 
-                   display: bool = False, 
-                   save_images_with_overlayed_detected_corners: bool = True) -> Dict[str, Dict[int, np.array]]:
-    
-    image_folders = {cam: os.path.join(images_parent_folder, cam) for cam in os.listdir(images_parent_folder) if os.path.isdir(os.path.join(images_parent_folder, cam))}
 
+def detect_charuco(
+    images_parent_folder: str,
+    charuco_detector: cv.aruco.CharucoDetector,
+    columns: int,
+    rows: int,
+    intrinsics_path: Optional[str] = None,
+    undistort: bool = True,
+    display: bool = False,
+    save_images_with_overlayed_detected_corners: bool = True,
+) -> Dict[str, Dict[int, np.ndarray]]:
+    """
+    Detect ChArUco corners per camera and frame.
+    """
+    image_folders = _camera_folders(images_parent_folder)
+    use_dir = os.path.isdir(intrinsics_path) if intrinsics_path else False
 
-    intrinsics_paths = {cam: os.path.join(intrinsics_folder, cam + "_intrinsics.json") for cam in image_folders}
+    correspondences: Dict[str, Dict[int, np.ndarray]] = {}
 
-    correspondences = {}  # dict by cam id
-
-    for cam, image_folder in tqdm(image_folders.items(), desc=f"Processing cameras", total=len(image_folders), leave=False): 
-
-    # for cam, image_folder in image_folders.items():
+    for cam, image_folder in tqdm(
+        image_folders.items(),
+        desc="Processing cameras",
+        total=len(image_folders),
+        leave=False,
+    ):
         correspondences[cam] = {}
-        if save_images_with_overlayed_detected_corners: 
-            if not os.path.exists(image_folder + "\\extracted_corners"):
-                os.makedirs(image_folder + "\\extracted_corners")
-                
-        if undistort:
-            camera_matrix, distortion_coeffs = load_intrinsics(intrinsics_paths[cam])
+        if save_images_with_overlayed_detected_corners:
+            out_dir = os.path.join(image_folder, "extracted_corners")
+            os.makedirs(out_dir, exist_ok=True)
 
-        files = os.listdir(image_folder)
-        files = [f for f in files if f.endswith(('.png', '.jpg', '.jpeg'))]
-        files.sort(key=lambda x: int(x.split('.')[0]))
-        
-        # for filename in files:
-        for filename in tqdm(files, desc=f"Processing camera {cam}", total=len(files), leave=False):        
-            k = int(filename.split('.')[0])
+        if undistort and intrinsics_path:
+            camera_matrix, distortion_coeffs = _load_intrinsics(
+                intrinsics_path, cam, use_dir
+            )
+        else:
+            camera_matrix, distortion_coeffs = None, None  # type: ignore
+
+        files = [
+            f for f in os.listdir(image_folder)
+            if f.endswith((".png", ".jpg", ".jpeg"))
+        ]
+        files.sort(key=lambda x: int(x.split(".")[0]))
+
+        for filename in tqdm(
+            files, desc=f"Processing camera {cam}",
+            total=len(files), leave=False
+        ):
+            k = int(filename.split(".")[0])
             file_path = os.path.join(image_folder, filename)
 
             img = cv.imread(file_path)
-            # gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-            charuco_corners, charuco_ids, marker_corners, marker_ids = charuco_detector.detectBoard(img)    
+            (
+                charuco_corners,
+                charuco_ids,
+                marker_corners,
+                marker_ids,  # noqa: F841
+            ) = charuco_detector.detectBoard(img)
 
-            if display:
-                if charuco_ids is not None:
-                    for i in range(len(charuco_ids)):
-                        corner = charuco_corners[i]
-                        charuco_id = charuco_ids[i]
-                        cv.circle(img, tuple(corner[0].astype(int)), 5, (0, 255, 0), -1)
-                        cv.putText(img, str(charuco_id), tuple(corner[0].astype(int)), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            if display and charuco_ids is not None:
+                cv.imshow("img", img)
+                cv.waitKey(1)
+                if save_images_with_overlayed_detected_corners:
+                    cv.imwrite(os.path.join(out_dir, filename), img)
 
-                    for i in range(len(marker_corners)):
-                        corner4 = marker_corners[i]
-                        for j in range(4):
-                            cv.circle(img, tuple(corner4[0, j, :].astype(int)), 2, (255, 255, 0), -1)
+            if charuco_corners is None or charuco_ids is None:
+                continue
 
-                    cv.imshow('img', img)
-                    cv.waitKey(1)
-                
-                    if save_images_with_overlayed_detected_corners:
-                        file_path_save = image_folder + "\\extracted_corners" + "\\" + filename
-                        cv.imwrite(file_path_save, img)
+            if undistort and camera_matrix is not None:
+                points_reshaped = charuco_corners.reshape(-1, 1, 2)
+                undistorted_points = cv.undistortPoints(
+                    points_reshaped, camera_matrix, distortion_coeffs,
+                    P=camera_matrix,
+                )
+                pts_2d = undistorted_points.reshape(-1, 2)
+            else:
+                pts_2d = charuco_corners.reshape(-1, 2)
 
-            if charuco_corners is not None:
-                if undistort:
-                    points_reshaped = charuco_corners.reshape(-1, 1, 2)
-                    undistorted_points = cv.undistortPoints(points_reshaped, camera_matrix, distortion_coeffs, P=camera_matrix)
-                    _2dpoints = undistorted_points.reshape(-1, 2)
-                else: 
-                    _2dpoints = charuco_corners
+            dense = np.full((columns * rows, 2), np.nan, dtype=float)
+            ids = np.array(charuco_ids).reshape(-1)
+            for i, cid in enumerate(ids):
+                dense[cid, :] = pts_2d[i, :]
 
-                _2dpoints = np.full((columns * rows, 2), np.nan)
-
-                for i in range(len(charuco_ids)):
-                    _2dpoints[charuco_ids[i], :] = charuco_corners[i, 0, :]
-
-                # correspondences[cam][k] = ObservationCheckerboard(_2dpoints)
-                correspondences[cam][k] = _2dpoints
-
-                # print(f"board added for {cam} at frame {k}")
+            correspondences[cam][k] = dense
 
     return correspondences
-
-# if __name__ == "__main__":
-
